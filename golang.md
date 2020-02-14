@@ -6,15 +6,17 @@ Martin J. Schreiner
 
 ## `Overview`
 
-0. What is Go about?
-1. Installing Go
-2. Text editors and IDEs
-3. Structure of Go code
-4. Hello, world!
-5. Typing system
-6. Structs and methods
-7. Interfaces and polymorphism
-8. Closures
+0. My experience with Go
+1. What is Go about?
+2. Installing Go
+3. Text editors and IDEs
+4. Structure of Go code
+5. Hello, world!
+6. Typing system
+7. Structs and methods
+8. Interfaces and polymorphism
+9. Closures and higher-order functions
+10. Goroutines and channels
 
 ---
 
@@ -245,9 +247,7 @@ func main() {
 
 ---
 
-## `Typing system`
-
-##### Type inference
+## `Typing system` - `Type inference`
 
 Types may also be inferred.
 
@@ -268,9 +268,7 @@ func main() {
 
 ---
 
-## `Typing system`
-
-##### Arrays
+## `Typing system` - `Arrays`
 
 Unlike in C, arrays are values, and we can't pass them around by leveraging their starting memory addresses as pointers.
 
@@ -293,21 +291,15 @@ func main() {
 
 ---
 
-## `Typing system`
-
-##### Slices
+## `Typing system` - `Slices`
 
 Unlike arrays, slices are dynamically allocated blocks of memory having three main attributes: a **type**, a **length** and a **capacity**.
 
 Slices grow as necessary, and are supported by a bunch of standard library functions.
 
-Of course, the casual `realloc` will be called under the bonnet when it increases beyond its capacity.
-
 ---
 
-## `Typing system`
-
-##### Slices
+## `Typing system` - `Slices`
 
 ```go
 package main
@@ -331,6 +323,298 @@ func main() {
 }
 ```
 
+---
+
+## `Typing system` - `Maps`
+
+```go
+package main
+
+import "fmt"
+
+type Vertex struct { Lat, Long float64 }
+
+func main() {
+    var m map[string]Vertex
+    m = make(map[string]Vertex)
+
+    m["Bell Labs"] = Vertex{
+        40.68433, -74.39967,
+    }
+
+    fmt.Println(m["Bell Labs"])
+}
+```
+
+--- 
+
+## `Typing system` - `Pointers`
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+    // array
+    var names [3]string = [...]string{"John Smith", "Paul Murray", "Linus Pauling"}
+
+    var sliceNames *[]string = new([]string)
+
+    for _, name := range(names) {
+        *sliceNames = append(*sliceNames, name)
+    }
+
+    for _, name := range(*sliceNames) {
+        fmt.Printf("There one lived a fellow, he lived in a slice, his name was: %s.\n", name)
+    }
+}
+```
+
+--- 
+
+## `Typing system` - `Pointers`
+
+```go
+package main
+
+import "fmt"
+
+func newSlice() *[]string {
+    var s []string = make([]string, 0)
+    return &s
+}
+
+func main() {
+    var names [3]string = [...]string{"John Smith", "Paul Murray", "Linus Pauling"}
+
+    var sliceNames *[]string = newSlice()
+
+    for _, name := range(names) {
+        *sliceNames = append(*sliceNames, name)
+    }
+
+    for _, name := range(*sliceNames) {
+        fmt.Printf("There one lived a fellow, he lived in a slice, his name was: %s.\n", name)
+    }
+}
+```
+
 --- 
 
 ## `Structs and methods`
+
+```go
+package main
+
+import "fmt"
+
+type Point struct {
+    X, Y uint
+}
+
+func (p Point) GetX() uint {
+    return p.X
+}
+
+func (p Point) Display() {
+    fmt.Printf("X: %d Y: %d\n", p.X, p.Y)
+}
+
+func main() {
+    point := Point{X: 12, Y: 27}
+    point.Display()
+}
+```
+
+---
+
+## `Structs and methods` - `Type embeddings`
+
+```go
+package main
+
+import "fmt"
+
+type Animal struct {
+    Name string
+}
+
+type Dog struct {
+    Class Animal
+    Breed string
+}
+
+func (a Animal) SayName() {
+    fmt.Println("%s", a.Name)
+}
+
+func (d Dog) SayBreed() {
+    fmt.Println("%s", d.Breed)
+}
+
+func main() {
+    d := Dog{Class: Animal{Name: "Billy"}, Breed: "Labrador"}
+    d.SayName()
+}
+```
+
+---
+
+## `Structs and methods` - `Immutability`
+
+```go
+package main
+
+import "fmt"
+
+type Point struct {
+    X, Y uint
+}
+
+// actually modifying copy
+func (p Point) SetX(x uint) {
+    p.X = x
+}
+
+func (p Point) Display() {
+    fmt.Printf("X: %d Y: %d\n", p.X, p.Y)
+}
+
+func main() {
+    point := Point{X: 12, Y: 27}
+    point.Display()
+    point.SetX(18)
+    point.Display()
+}
+```
+
+---
+
+## `Structs and methods` - `Immutability`
+
+```go
+package main
+
+import "fmt"
+
+type Point struct {
+    X, Y uint
+}
+
+// pointer to struct allows us to modify it
+func (p *Point) SetX(x uint) {
+    // implicit dereference, same as: (*p).X = x
+    p.X = x
+}
+
+// still works, implicit dereference
+func (p Point) Display() {
+    fmt.Printf("X: %d Y: %d\n", p.X, p.Y)
+}
+
+func main() {
+    point := &Point{X: 12, Y: 27}
+    point.Display()
+    point.SetX(18)
+    point.Display()
+}
+```
+
+---
+
+## `Interfaces and polymorphism`
+
+```go
+package main
+
+import "fmt"
+
+type Greetable interface {
+    Greet()
+    AskName() string
+}
+
+type Person struct {Name string}
+type Crow struct {Name string}
+
+func (p Person) Greet() {
+    fmt.Printf("Hello! I am %s!\n", p.Name)
+}
+
+func (p Person) AskName() string {
+    return p.Name
+}
+
+func (c Crow) Greet() {
+    fmt.Printf("Coo coo! Greetings, I'm %s!\n", c.Name)
+}
+
+func (c Crow) AskName() string {
+    return c.Name
+}
+
+func main() {
+    var g Greetable
+
+    g = Person{Name: "Martin"}
+    g.Greet()
+
+    g = Crow{Name: "Barry"}
+    g.Greet()
+}
+```
+
+---
+
+## `Closures and higher-order functions`
+
+```go
+package main
+
+import "fmt"
+
+func Counter() func() uint {
+    current := uint(0)
+    return func() uint {
+        current++
+        return current
+    }
+}
+
+func main() {
+    counter := Counter()
+    fmt.Println(counter())
+    fmt.Println(counter())
+    fmt.Println(counter())
+}
+```
+
+---
+
+## `Closures and higher-order functions`
+
+```go
+package main
+
+import "fmt"
+
+func Counter(callback func(uint)) func() uint {
+    current := uint(0)
+    return func() uint {
+        callback(current)
+        current++
+        return current
+    }
+}
+
+func main() {
+    f := func(c uint) {
+        fmt.Printf("Current state: %d.\n", c)
+    }
+    counter := Counter(f)
+    fmt.Println(counter())
+    fmt.Println(counter())
+    fmt.Println(counter())
+}
+```
